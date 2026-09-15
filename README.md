@@ -101,8 +101,7 @@ Prisma models include:
 - MongoDB.
 - Google OAuth credentials.
 - GitHub OAuth credentials.
-- A local Ollama installation.
-- Ollama models `codellama:latest` and `codellama:7b`.
+- An API key for an OpenAI-compatible AI provider.
 - A browser that supports WebContainers and cross-origin isolation.
 
 ## Setup
@@ -122,14 +121,9 @@ GITHUB_CLIENT_ID="your-github-oauth-client-id"
 GITHUB_CLIENT_SECRET="your-github-oauth-client-secret"
 GOOGLE_CLIENT_ID="your-google-oauth-client-id"
 GOOGLE_CLIENT_SECRET="your-google-oauth-client-secret"
-```
-
-Start Ollama and install the required local models:
-
-```bash
-ollama serve
-ollama pull codellama:latest
-ollama pull codellama:7b
+AI_API_URL="https://api.openai.com/v1/chat/completions"
+AI_API_KEY="your-ai-provider-key"
+AI_MODEL="gpt-4o-mini"
 ```
 
 Start the development server:
@@ -139,6 +133,17 @@ npm run dev
 ```
 
 Open [http://localhost:3000](http://localhost:3000). The current middleware protects the application routes, so sign in with Google or GitHub before using the dashboard.
+
+## Deploying to Vercel
+
+1. Import the repository into Vercel and keep the framework preset as Next.js.
+2. Add `DATABASE_URL`, `AUTH_SECRET`, `GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET`, `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `AI_API_URL`, `AI_API_KEY`, and `AI_MODEL` in the Vercel project environment settings.
+3. Add the production OAuth callback URLs to both providers:
+	- `https://your-domain.com/api/auth/callback/github`
+	- `https://your-domain.com/api/auth/callback/google`
+4. Deploy with the repository build command, which runs `prisma generate` before `next build`.
+
+Use a hosted MongoDB instance such as MongoDB Atlas. WebContainers and the live preview still run in the visitor's browser, so users need a compatible browser and the deployed site must continue to send the configured cross-origin isolation headers.
 
 ## Scripts
 
@@ -158,16 +163,15 @@ hooks/                    Shared React hooks
 lib/                      Database, template, and utility helpers
 modules/                  Auth, dashboard, home, playground, AI chat, and WebContainer features
 prisma/                   MongoDB schema
-public/vibecode-starters/ Starter project collection used by playgrounds
+vibecode-starters/         Starter project collection used by playgrounds
 ```
 
 ## Current Limitations
 
-- The AI backend requires Ollama at `http://localhost:11434`.
+- The AI backend requires a configured OpenAI-compatible provider through `AI_API_URL`, `AI_API_KEY`, and `AI_MODEL`. The default endpoint is OpenAI's chat-completions API, but compatible providers can be used.
 - WebContainer startup depends on the selected starter having a compatible `npm run start` script and browser-compatible dependencies.
-- The configured Next.js template path is `vibecode-starters/nextjs-new`; that directory is not currently present in the repository and may need to be corrected before creating a Next.js playground.
 - The dashboard's GitHub repository tile is currently presentational; repository import is not implemented.
-- Project duplication copies project metadata but does not currently copy the associated saved file tree.
+- Project duplication copies the project metadata and saved file tree, but does not clone external repositories.
 - The `/docs` and sign-up links are present in the route/navigation configuration but do not currently represent complete implemented workflows.
 - Several project and template operations should receive stronger ownership checks before being exposed to untrusted users.
 
@@ -181,5 +185,5 @@ public/vibecode-starters/ Starter project collection used by playgrounds
 - Xterm.js
 - NextAuth
 - Prisma with MongoDB
-- Ollama with Code Llama
+- OpenAI-compatible AI API integration
 - React Markdown, remark-gfm, rehype-katex, and remark-math

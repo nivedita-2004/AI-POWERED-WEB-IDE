@@ -11,6 +11,12 @@ export const toggleStarMarked = async(playgroundId: string , isChecked: boolean)
         throw new Error("UserId is required");
     }
     try {
+        const playground = await db.playground.findFirst({
+            where: { id: playgroundId, userId },
+            select: { id: true },
+        });
+        if (!playground) throw new Error("Playground not found");
+
         if(isChecked){
             await db.starMark.create({
                 data: {
@@ -40,17 +46,18 @@ export const toggleStarMarked = async(playgroundId: string , isChecked: boolean)
 
 export const getAllPlaygroundForUser = async()=>{
     const user = await currentUser();
+    if (!user?.id) return [];
 
     try {
         const playground = await db.playground.findMany({
             where: {
-                userId: user?.id
+                userId: user.id
             },
             include:{
                 user:true,
                 Starmark:{
                     where:{
-                        userId: user?.id!
+                        userId: user.id
                     },
                     select:{
                         isMarked:true
@@ -71,6 +78,7 @@ export const createPlayground = async(data: {
     description?: string;
 })=>{
     const user = await currentUser();
+    if (!user?.id) throw new Error("Authentication is required");
     const {template,title, description} =data;
 
     try {
@@ -79,7 +87,7 @@ export const createPlayground = async(data: {
                 title: title,
                 description: description,
                 template: template,
-                userId: user?.id!
+                userId: user.id
             }
         })
         return playground;
@@ -89,12 +97,10 @@ export const createPlayground = async(data: {
 }
 
 export const deleteProjectById= async(id:string)=>{
+    const user = await currentUser();
+    if (!user?.id) throw new Error("Authentication is required");
     try {
-        await db.playground.delete({
-            where:{
-                id
-            }
-        })
+        await db.playground.deleteMany({ where: { id, userId: user.id } });
         revalidatePath("/dashboard")
     } catch (error) {
         console.log(error)
@@ -102,13 +108,10 @@ export const deleteProjectById= async(id:string)=>{
 }
 
 export const editProjectById = async(id: string, data:{title: string, description: string})=>{
+    const user = await currentUser();
+    if (!user?.id) throw new Error("Authentication is required");
     try {
-        await db.playground.update({
-            where:{
-                id
-            },
-            data:data
-        })
+        await db.playground.updateMany({ where: { id, userId: user.id }, data });
         revalidatePath("/dashboard")
     } catch (error) {
         console.log(error);
@@ -118,23 +121,37 @@ export const editProjectById = async(id: string, data:{title: string, descriptio
 export const duplicateProjectById = async (
   id: string
 ): Promise<void> => {
+    const user = await currentUser();
+    if (!user?.id) throw new Error("Authentication is required");
   try {
     const originalPlayground = await db.playground.findUnique({
-      where: { id },
+            where: { id },
     });
 
-    if (!originalPlayground) {
+        if (!originalPlayground || originalPlayground.userId !== user.id) {
       throw new Error("Original playground not found");
     }
 
-    await db.playground.create({
+        const duplicate = await db.playground.create({
       data: {
         title: `${originalPlayground.title} (Copy)`,
         description: originalPlayground.description,
         template: originalPlayground.template,
-        userId: originalPlayground.userId,
+                userId: user.id,
       },
     });
+
+        const templateFile = await db.templateFile.findUnique({
+            where: { playgroundId: id },
+        });
+        if (templateFile) {
+            await db.templateFile.create({
+                data: {
+                    playgroundId: duplicate.id,
+                    content: JSON.parse(JSON.stringify(templateFile.content)),
+                },
+            });
+        }
 
     revalidatePath("/dashboard");
   } catch (error) {

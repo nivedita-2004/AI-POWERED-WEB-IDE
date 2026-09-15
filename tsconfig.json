@@ -39,6 +39,7 @@
     "prisma.config.ts.bk"
   ],
   "exclude": [
-    "node_modules"
+    "node_modules",
+    "vibecode-starters"
   ]
 }

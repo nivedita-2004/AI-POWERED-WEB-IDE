@@ -7,6 +7,7 @@ import type React from "react"
 import { useState, useEffect, forwardRef } from "react"
 import { toast } from "sonner"
 import { toggleStarMarked } from "../actions"
+import { useRouter } from "next/navigation"
 
 interface MarkedToggleButtonProps extends React.ComponentPropsWithoutRef<typeof Button> {
   markedForRevision: boolean
@@ -15,6 +16,7 @@ interface MarkedToggleButtonProps extends React.ComponentPropsWithoutRef<typeof 
 
 export const MarkedToggleButton = forwardRef<HTMLButtonElement, MarkedToggleButtonProps>(
   ({ markedForRevision, id, onClick, className, children, ...props }, ref) => {
+    const router = useRouter()
     const [isMarked, setIsMarked] = useState(markedForRevision)
 
     useEffect(() => {
@@ -38,8 +40,7 @@ export const MarkedToggleButton = forwardRef<HTMLButtonElement, MarkedToggleButt
         } else {
           toast.success("Removed from Favorites successfully")
         }
-
-
+        router.refresh()
 
       } catch (error) {
         console.error("Failed to toggle mark for revision:", error)

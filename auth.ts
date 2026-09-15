@@ -4,6 +4,7 @@ import NextAuth from "next-auth"
 import authConfig from "./auth.config"
 import { db } from "./lib/db"
 import { getUserById } from "./modules/auth/actions"
+import { UserRole } from "@prisma/client"
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
    session: {
@@ -87,7 +88,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       }
 
       if(token.sub && session.user){
-        session.user.role=token.role
+        session.user.role=token.role as UserRole
       }
       return session;
 

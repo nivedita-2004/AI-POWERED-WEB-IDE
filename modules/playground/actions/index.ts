@@ -9,9 +9,11 @@ import { currentUser } from "@/modules/auth/actions";
 
 
 export const getPlaygroundById = async(id:string)=>{
+    const user = await currentUser();
+    if (!user?.id) return null;
     try {
-        const playground = await db.playground.findUnique({
-            where:{id},
+        const playground = await db.playground.findFirst({
+            where:{id, userId: user.id},
             select:{
                 title:true,
                 TemplateFiles:{
@@ -32,6 +34,12 @@ export const SaveUpdatedCode = async(playgroundId:string , data:TemplateFolder)=
   if (!user) return null;
 
   try {
+        const playground = await db.playground.findFirst({
+            where: { id: playgroundId, userId: user.id },
+            select: { id: true },
+        });
+        if (!playground) return null;
+
     const updatedPlayground = await db.templateFile.upsert({
         where:{
             playgroundId

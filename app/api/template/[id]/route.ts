@@ -1,12 +1,11 @@
 import {
-  readTemplateStructureFromJson,
-  saveTemplateStructureToJson,
+  scanTemplateDirectory,
 } from "@/modules/playground/lib/path-to-json";
 import { db } from "@/lib/db";
 import { templatePaths } from "@/lib/template";
 import path from "path";
-import fs from "fs/promises";
 import { NextRequest } from "next/server";
+import { auth } from "@/auth";
 
 function validateJsonStructure(data: unknown): boolean {
   try {
@@ -29,8 +28,13 @@ if(!id){
       return Response.json({ error: "Missing playground ID" }, { status: 400 });
 }
 
-const playground = await db.playground.findUnique({
-    where:{id}
+  const session = await auth();
+  if (!session?.user?.id) {
+    return Response.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  const playground = await db.playground.findFirst({
+    where: { id, userId: session.user.id },
 })
 
   if (!playground) {
@@ -46,10 +50,7 @@ const playground = await db.playground.findUnique({
 
   try {
     const inputPath = path.join(process.cwd() , templatePath);
-    const outputFile = path.join(process.cwd() , `output/${templateKey}.json`);
-
-    await saveTemplateStructureToJson(inputPath , outputFile);
-    const result = await readTemplateStructureFromJson(outputFile);
+    const result = await scanTemplateDirectory(inputPath);
 
 
     // Validate the JSON structure before saving
@@ -57,10 +58,7 @@ const playground = await db.playground.findUnique({
       return Response.json({ error: "Invalid JSON structure" }, { status: 500 });
     }
 
-    await fs.unlink(outputFile)
-
-
-      return Response.json({ success: true, templateJson: result }, { status: 200 });
+    return Response.json({ success: true, templateJson: result }, { status: 200 });
   } catch (error) {
       console.error("Error generating template JSON:", error);
     return Response.json({ error: "Failed to generate template" }, { status: 500 });

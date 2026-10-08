@@ -205,6 +205,22 @@ const WebContainerPreview = ({
 
         const startProcess = await instance.spawn("npm", ["run", "start"]);
 
+        startProcess.exit.then((exitCode) => {
+          if (exitCode !== 0) {
+            setLoadingState((prev) => {
+              if (prev.starting) {
+                return { ...prev, starting: false };
+              }
+              return prev;
+            });
+            if (terminalRef.current?.writeToTerminal) {
+              terminalRef.current.writeToTerminal(
+                `\r\n❌ Development server process exited with code ${exitCode}\r\n`
+              );
+            }
+          }
+        });
+
         instance.on("server-ready", (port: number, url: string) => {
           if (terminalRef.current?.writeToTerminal) {
             terminalRef.current.writeToTerminal(

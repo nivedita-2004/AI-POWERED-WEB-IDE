@@ -27,10 +27,17 @@ export function transformToWebContainerFormat(template: { folderName: string; it
       const directoryContents: WebContainerFileSystem = {};
       
       item.items.forEach(subItem => {
-        const key = subItem.fileExtension 
-          ? `${subItem.filename}.${subItem.fileExtension}`
-          : subItem.folderName!;
-        directoryContents[key] = processItem(subItem);
+        if (!subItem) return;
+        if (subItem.folderName) {
+          if (subItem.folderName === "undefined" || subItem.folderName === "null") return;
+          directoryContents[subItem.folderName] = processItem(subItem);
+        } else if (subItem.filename) {
+          if (subItem.filename === "undefined" || subItem.filename === "null") return;
+          const key = subItem.fileExtension
+            ? `${subItem.filename}.${subItem.fileExtension}`
+            : subItem.filename;
+          directoryContents[key] = processItem(subItem);
+        }
       });
 
       return {
@@ -40,7 +47,7 @@ export function transformToWebContainerFormat(template: { folderName: string; it
       // This is a file
       return {
         file: {
-          contents: item.content
+          contents: item.content || ""
         }
       };
     }
@@ -49,11 +56,18 @@ export function transformToWebContainerFormat(template: { folderName: string; it
   const result: WebContainerFileSystem = {};
   
   template.items.forEach(item => {
-    const key = item.fileExtension 
-      ? `${item.filename}.${item.fileExtension}`
-      : item.folderName!;
-    result[key] = processItem(item);
+    if (!item) return;
+    if (item.folderName) {
+      if (item.folderName === "undefined" || item.folderName === "null") return;
+      result[item.folderName] = processItem(item);
+    } else if (item.filename) {
+      if (item.filename === "undefined" || item.filename === "null") return;
+      const key = item.fileExtension
+        ? `${item.filename}.${item.fileExtension}`
+        : item.filename;
+      result[key] = processItem(item);
+    }
   });
 
   return result;
-}1
+}

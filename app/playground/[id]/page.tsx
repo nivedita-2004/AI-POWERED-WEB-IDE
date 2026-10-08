@@ -22,13 +22,17 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import LoadingStep from "@/modules/playground/components/loader";
-import {PlaygroundEditor} from "@/modules/playground/components/playground-editor";
+import { PlaygroundEditor } from "@/modules/playground/components/playground-editor";
 import { TemplateFileTree } from "@/modules/playground/components/playground-explorer";
 import ToggleAI from "@/modules/playground/components/toggle-ai";
 import { useAISuggestions } from "@/modules/playground/hooks/useAISuggestion";
 import { useFileExplorer } from "@/modules/playground/hooks/useFileExplorer";
 import { usePlayground } from "@/modules/playground/hooks/usePlayground";
 import { findFilePath } from "@/modules/playground/lib";
+import {
+  setupWebContainerSync,
+  recordMonacoWrite,
+} from "@/modules/playground/lib/webcontainer-sync";
 import {
   TemplateFile,
   TemplateFolder,
@@ -61,7 +65,7 @@ const MainPlaygroundPage = () => {
   const { playgroundData, templateData, isLoading, error, saveTemplateData } =
     usePlayground(id);
 
-    const aiSuggestions = useAISuggestions();
+  const aiSuggestions = useAISuggestions();
 
   const {
     setTemplateData,
@@ -94,6 +98,20 @@ const MainPlaygroundPage = () => {
 
   const lastSyncedContent = useRef<Map<string, string>>(new Map());
 
+  // WebContainer filesystem -> Monaco editor bidirectional sync
+  useEffect(() => {
+    if (!instance || !id) return;
+
+    const cleanupSync = setupWebContainerSync({
+      instance,
+      playgroundId: id,
+    });
+
+    return () => {
+      cleanupSync();
+    };
+  }, [instance, id]);
+
   useEffect(() => {
     setPlaygroundId(id);
   }, [id, setPlaygroundId]);
@@ -107,6 +125,11 @@ const MainPlaygroundPage = () => {
   // Create wrapper functions that pass saveTemplateData
   const wrappedHandleAddFile = useCallback(
     (newFile: TemplateFile, parentPath: string) => {
+      const fileName = newFile.fileExtension
+        ? `${newFile.filename}.${newFile.fileExtension}`
+        : newFile.filename;
+      const filePath = parentPath ? `${parentPath}/${fileName}` : fileName;
+      recordMonacoWrite(filePath, newFile.content || "");
       return handleAddFile(
         newFile,
         parentPath,
@@ -189,27 +212,31 @@ const MainPlaygroundPage = () => {
       if (!latestTemplateData) return
 
       try {
-            const filePath = findFilePath(fileToSave, latestTemplateData);
+        const displayName = fileToSave.fileExtension
+          ? `${fileToSave.filename}.${fileToSave.fileExtension}`
+          : fileToSave.filename;
+
+        const filePath = findFilePath(fileToSave, latestTemplateData);
         if (!filePath) {
           toast.error(
-            `Could not find path for file: ${fileToSave.filename}.${fileToSave.fileExtension}`
+            `Could not find path for file: ${displayName}`
           );
           return;
         }
 
-   const updatedTemplateData = JSON.parse(
+        const updatedTemplateData = JSON.parse(
           JSON.stringify(latestTemplateData)
         );
 
         // @ts-ignore
-          const updateFileContent = (items: any[]) =>
-            // @ts-ignore
+        const updateFileContent = (items: any[]) =>
+          // @ts-ignore
           items.map((item) => {
             if ("folderName" in item) {
               return { ...item, items: updateFileContent(item.items) };
             } else if (
               item.filename === fileToSave.filename &&
-              item.fileExtension === fileToSave.fileExtension
+              (item.fileExtension || "") === (fileToSave.fileExtension || "")
             ) {
               return { ...item, content: fileToSave.content };
             }
@@ -219,8 +246,9 @@ const MainPlaygroundPage = () => {
           updatedTemplateData.items
         );
 
-          // Sync with WebContainer
+        // Sync with WebContainer
         if (writeFileSync) {
+          recordMonacoWrite(filePath, fileToSave.content);
           await writeFileSync(filePath, fileToSave.content);
           lastSyncedContent.current.set(fileToSave.id, fileToSave.content);
           if (instance && instance.fs) {
@@ -228,29 +256,32 @@ const MainPlaygroundPage = () => {
           }
         }
 
-         await saveTemplateData(updatedTemplateData);
+        await saveTemplateData(updatedTemplateData);
 
-setTemplateData(updatedTemplateData);
-// Update open files
+        setTemplateData(updatedTemplateData);
+        // Update open files
         const updatedOpenFiles = openFiles.map((f) =>
           f.id === targetFileId
             ? {
-                ...f,
-                content: fileToSave.content,
-                originalContent: fileToSave.content,
-                hasUnsavedChanges: false,
-              }
+              ...f,
+              content: fileToSave.content,
+              originalContent: fileToSave.content,
+              hasUnsavedChanges: false,
+            }
             : f
         );
         setOpenFiles(updatedOpenFiles);
 
-    toast.success(
-          `Saved ${fileToSave.filename}.${fileToSave.fileExtension}`
+        toast.success(
+          `Saved ${displayName}`
         );
       } catch (error) {
-         console.error("Error saving file:", error);
+        console.error("Error saving file:", error);
+        const displayName = fileToSave.fileExtension
+          ? `${fileToSave.filename}.${fileToSave.fileExtension}`
+          : fileToSave.filename;
         toast.error(
-          `Failed to save ${fileToSave.filename}.${fileToSave.fileExtension}`
+          `Failed to save ${displayName}`
         );
         throw error;
       }
@@ -266,7 +297,7 @@ setTemplateData(updatedTemplateData);
     ]
   );
 
-    const handleSaveAll = async () => {
+  const handleSaveAll = async () => {
     const unsavedFiles = openFiles.filter((f) => f.hasUnsavedChanges);
 
     if (unsavedFiles.length === 0) {
@@ -283,16 +314,16 @@ setTemplateData(updatedTemplateData);
   };
 
 
-  useEffect(()=>{
-    const handleKeyDown = (e:KeyboardEvent)=>{
-      if(e.ctrlKey && e.key === "s"){
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.ctrlKey && e.key === "s") {
         e.preventDefault()
         handleSave()
       }
     }
-     window.addEventListener("keydown", handleKeyDown);
-     return () => window.removeEventListener("keydown", handleKeyDown);
-  },[handleSave]);
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [handleSave]);
 
   if (error) {
     return (
@@ -410,11 +441,11 @@ setTemplateData(updatedTemplateData);
                   <TooltipContent>Save All (Ctrl+Shift+S)</TooltipContent>
                 </Tooltip>
 
-               <ToggleAI
-                isEnabled={aiSuggestions.isEnabled}
-                onToggle={aiSuggestions.toggleEnabled}
-                suggestionLoading={aiSuggestions.isLoading}
-               />
+                <ToggleAI
+                  isEnabled={aiSuggestions.isEnabled}
+                  onToggle={aiSuggestions.toggleEnabled}
+                  suggestionLoading={aiSuggestions.isLoading}
+                />
 
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
@@ -457,7 +488,7 @@ setTemplateData(updatedTemplateData);
                             <div className="flex items-center gap-2">
                               <FileText className="h-3 w-3" />
                               <span>
-                                {file.filename}.{file.fileExtension}
+                                {file.fileExtension ? `${file.filename}.${file.fileExtension}` : file.filename}
                               </span>
                               {file.hasUnsavedChanges && (
                                 <span className="h-2 w-2 rounded-full bg-orange-500" />
@@ -498,15 +529,15 @@ setTemplateData(updatedTemplateData);
                       <PlaygroundEditor
                         activeFile={activeFile}
                         content={activeFile?.content || ""}
-                        onContentChange={(value) => 
-                          activeFileId && updateFileContent(activeFileId , value)
+                        onContentChange={(value) =>
+                          activeFileId && updateFileContent(activeFileId, value)
                         }
                         suggestion={aiSuggestions.suggestion}
                         suggestionLoading={aiSuggestions.isLoading}
                         suggestionPosition={aiSuggestions.position}
-                        onAcceptSuggestion={(editor , monaco)=>aiSuggestions.acceptSuggestion(editor , monaco)}
+                        onAcceptSuggestion={(editor, monaco) => aiSuggestions.acceptSuggestion(editor, monaco)}
 
-                          onRejectSuggestion={(editor) =>
+                        onRejectSuggestion={(editor) =>
                           aiSuggestions.rejectSuggestion(editor)
                         }
                         onTriggerSuggestion={(type, editor) =>

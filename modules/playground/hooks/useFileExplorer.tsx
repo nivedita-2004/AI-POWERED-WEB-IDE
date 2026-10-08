@@ -170,16 +170,21 @@ export const useFileExplorer = create<FileExplorerState>((set, get) => ({
 
       currentFolder.items.push(newFile);
       set({ templateData: updatedTemplateData });
-      toast.success(`Created file: ${newFile.filename}.${newFile.fileExtension}`);
+      toast.success(
+        `Created file: ${newFile.filename}${newFile.fileExtension ? "." + newFile.fileExtension : ""}`
+      );
 
       // Use the passed saveTemplateData function
       await saveTemplateData(updatedTemplateData);
 
       // Sync with web container
       if (writeFileSync) {
+        const fileName = newFile.fileExtension
+          ? `${newFile.filename}.${newFile.fileExtension}`
+          : newFile.filename;
         const filePath = parentPath
-          ? `${parentPath}/${newFile.filename}.${newFile.fileExtension}`
-          : `${newFile.filename}.${newFile.fileExtension}`;
+          ? `${parentPath}/${fileName}`
+          : fileName;
         await writeFileSync(filePath, newFile.content || "");
       }
 
@@ -252,7 +257,7 @@ export const useFileExplorer = create<FileExplorerState>((set, get) => ({
         (item) =>
           !("filename" in item) ||
           item.filename !== file.filename ||
-          item.fileExtension !== file.fileExtension
+          (item.fileExtension || "") !== (file.fileExtension || "")
       );
 
       // Find and close the file if it's open
@@ -269,7 +274,9 @@ export const useFileExplorer = create<FileExplorerState>((set, get) => ({
 
       // Use the passed saveTemplateData function
       await saveTemplateData(updatedTemplateData);
-      toast.success(`Deleted file: ${file.filename}.${file.fileExtension}`);
+      toast.success(
+        `Deleted file: ${file.filename}${file.fileExtension ? "." + file.fileExtension : ""}`
+      );
     } catch (error) {
       console.error("Error deleting file:", error);
       toast.error("Failed to delete file");
@@ -363,7 +370,7 @@ export const useFileExplorer = create<FileExplorerState>((set, get) => ({
         (item) =>
           "filename" in item &&
           item.filename === file.filename &&
-          item.fileExtension === file.fileExtension
+          (item.fileExtension || "") === (file.fileExtension || "")
       );
 
       if (fileIndex !== -1) {

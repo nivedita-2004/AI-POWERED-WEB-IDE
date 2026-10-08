@@ -257,12 +257,13 @@ function TemplateNode({
 
   if (!isFolder) {
     const file = item as TemplateFile;
-    const fileName = `${file.filename}.${file.fileExtension}`;
+    if (!file.filename || file.filename === "undefined" || file.filename === "null") return null;
+    const fileName = file.fileExtension ? `${file.filename}.${file.fileExtension}` : file.filename;
 
     const isSelected =
       selectedFile &&
       selectedFile.filename === file.filename &&
-      selectedFile.fileExtension === file.fileExtension;
+      (selectedFile.fileExtension || "") === (file.fileExtension || "");
 
     const handleRename = () => {
       setIsRenameDialogOpen(true);
@@ -344,6 +345,7 @@ function TemplateNode({
   } else {
     const folder = item as TemplateFolder;
     const folderName = folder.folderName;
+    if (!folderName || folderName === "undefined" || folderName === "null") return null;
     const currentPath = path ? `${path}/${folderName}` : folderName;
 
     const handleAddFile = () => {

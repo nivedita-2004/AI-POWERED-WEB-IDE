@@ -3,6 +3,7 @@ import { toast } from "sonner";
 
 import type { TemplateFolder } from "../lib/path-to-json";
 import { getPlaygroundById, SaveUpdatedCode } from "../actions";
+import { sanitizeTree } from "../lib/webcontainer-sync";
 
 interface PlaygroundData {
   id: string;
@@ -42,7 +43,8 @@ export const usePlayground = (id: string): UsePlaygroundReturn => {
 
       if (typeof rawContent === "string") {
         const parsedContent = JSON.parse(rawContent);
-        setTemplateData(parsedContent);
+        const cleaned = sanitizeTree(parsedContent);
+        setTemplateData(cleaned);
         toast.success("playground loaded successfully");
         return;
       }
@@ -56,17 +58,19 @@ export const usePlayground = (id: string): UsePlaygroundReturn => {
       const templateRes = await res.json();
 
       if (templateRes.templateJson && Array.isArray(templateRes.templateJson)) {
-        setTemplateData({
+        const cleaned = sanitizeTree({
           folderName: "Root",
           items: templateRes.templateJson,
         });
+        setTemplateData(cleaned);
       } else {
-        setTemplateData(
+        const cleaned = sanitizeTree(
           templateRes.templateJson || {
             folderName: "Root",
             items: [],
           }
         );
+        setTemplateData(cleaned);
       }
       toast.success("Template loaded successfully");
     } catch (error) {

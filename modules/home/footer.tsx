@@ -1,5 +1,4 @@
 import Link from "next/link";
-import { FcGoogle } from "react-icons/fc";
 import { FaGithub } from "react-icons/fa";
 
 
@@ -16,8 +15,8 @@ export function Footer() {
   ];
 
   return (
-    <footer className="border-t border-zinc-200 dark:border-zinc-800">
-      <div className="mx-auto max-w-7xl px-4 sm:px-6 py-8 flex flex-col items-center space-y-6 text-center">
+    <footer className="border-t border-zinc-200 dark:border-zinc-800 shrink-0">
+      <div className="mx-auto max-w-7xl px-4 sm:px-6 py-2.5 sm:py-3 flex flex-col items-center space-y-1.5 sm:space-y-2 text-center">
         {/* Social Links */}
         <div className="flex gap-4">
           {socialLinks.map((link, index) => (
@@ -33,7 +32,7 @@ export function Footer() {
         </div>
 
         {/* Copyright Notice */}
-        <p className="text-sm text-zinc-500 dark:text-zinc-400">
+        <p className="text-xs sm:text-sm text-zinc-500 dark:text-zinc-400">
           &copy; {new Date().getFullYear()} VibeCode Editor. Built with ❤️ by Nivedita..
         </p>
       </div>
